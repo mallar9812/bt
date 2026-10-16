@@ -8,7 +8,7 @@
 `chart_2856`, `chart_2857` or `chart_3341`; the build, device, permission and `install_bucket` dimensions sum
 normally.
 
-The retired warehouse originals — the unnamed Firebase stability table,
+The Databricks originals — the unnamed Firebase stability table,
 `external_data.playstore_crashes_app_version`, and the unnamed notifications table — are **retired; do
 not query them.**
 

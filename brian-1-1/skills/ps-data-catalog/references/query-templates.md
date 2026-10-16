@@ -1,10 +1,10 @@
-# Query Templates — Trino only
+# Query Templates — Databricks only
 
-⚠️ **Trino now serves exactly four things.** Everything else routes to Druid — versioned
+⚠️ **Databricks now serves exactly four things.** Everything else routes to Druid — versioned
 datasource from `play_data.chart_config`, alphabetically-sorted variant suffix, Druid SQL, rollup guard
-and unavailability rules all in `references/query-engines.md`. Do not use this file's syntax for a chart.
+and fallback rules all in `references/query-engines.md`. Do not use this file's syntax for a chart.
 
-The four Trino jobs:
+The four Databricks jobs:
 
 1. **`play_data.chart_config`** — the version lookup. Runs on every conversation that touches a chart.
 2. **`play_data.monthly_rev_diff`** — long-horizon monthly cohort; the one core table with no Druid
@@ -16,32 +16,21 @@ The four Trino jobs:
    query or fall back to `play_data.charts_annotations_data` (a separate older store) or
    `play_data.annotations_data` (empty).
 
-`public.gid_mapping` is the fifth Trino read — the name→GID lookup, owned by `ps-entities`.
-
 These show **structure and syntax only**. No filter *value* below is a default — apply a filter only when
 the question calls for it or a hard rule requires it, and omit an unscoped filter entirely rather than
 blanking it. If unsure whether a source exclusion applies, ask the user rather than carrying one over.
 
-## Trino SQL form
+## Databricks SQL form
 
 ```sql
-SELECT gid, cli, SUM(rev) AS rev
-FROM play_data.monthly_rev_diff
-WHERE install_month >= DATE '2026-01-01' AND gid = 9 AND cli = 0
-GROUP BY 1, 2
+%sql
+select `__time`, gid, cli, sum(revenue) from <table>
+where `__time` > '2026-01-01' and gid = 9 and cli = 0 group by 1,2,3
 ```
 
-- **`schema.table`, never a catalog prefix**, no backticks, and **no `%sql`** — it is a syntax error
-  in Trino.
-- Single quotes are strings, double quotes are identifiers. Typed literals for dates and timestamps:
-  `DATE '2026-08-01'`, `TIMESTAMP '2026-06-28'` — a bare string will not implicitly cast.
-- `gid`, `cli` and `diff` are real `BIGINT` columns here — compare them **unquoted** (`gid = 22`). The
-  quoted-literal rule is a Druid rule and does not carry over.
 - Group by raw column positions matching the selected dimensions; aggregate last.
-- Date columns: `date_field` (a real `date`) on the Sensor Tower tables. `play_data.monthly_rev_diff`
-  has **no date column** in the daily sense — scope it by `install_month`, itself a `date`.
-- Full dialect notes — `date_add` vs `add_months`, `array_agg` vs `collect_set`, `bool_or`, regex
-  quoting, casting `value` — are in `references/query-engines.md` under "Trino SQL syntax".
+- Date columns: `date_field` on the Sensor Tower tables. `play_data.monthly_rev_diff` has **no date
+  column at all** — scope it by `install_month`.
 
 ## 1. Chart version lookup
 
@@ -49,14 +38,12 @@ Batch every chart the conversation needs into one statement, then build each Dru
 appending the variant's `independent_columns` **sorted alphabetically**:
 
 ```sql
-SELECT chart_id, version, chart_version, independent_columns, metrics
-FROM play_data.chart_config
-WHERE chart_id IN ('chart_579', 'chart_1170', 'chart_1706', 'chart_3730')
-ORDER BY chart_id, chart_version
+%sql
+select chart_id, version, chart_version, independent_columns, metrics
+from play_data.chart_config
+where chart_id in ('chart_579', 'chart_1170', 'chart_1706', 'chart_3730')
+order by chart_id, chart_version
 ```
-
-`independent_columns` and `metrics` are `array(varchar)` in Trino — real arrays. Read them as arrays;
-`array_join(independent_columns, '-')` flattens one if you want the suffix inline. Never string-parse them.
 
 ## 2. Long-horizon monthly cohort
 
@@ -64,24 +51,23 @@ ORDER BY chart_id, chart_version
 inflates by the row count (confirmed: one cohort carried the identical value on 104 rows).
 
 ```sql
+%sql
 -- per-month cohort revenue
-SELECT gid, cli, install_month, diff,
-       date_add('month', diff, install_month) AS dau_month, rev
-FROM play_data.monthly_rev_diff
-WHERE gid = <GID> AND cli = <CLI>
-ORDER BY install_month, diff
+select gid, cli, install_month, diff,
+       add_months(to_date(install_month), diff) as dau_month, rev
+from play_data.monthly_rev_diff
+where gid = <GID> and cli = <CLI>
+order by install_month, diff
 ```
 
 ```sql
+%sql
 -- cohort spend, deduplicated
-SELECT gid, cli, install_month, MAX(spend) AS spend
-FROM play_data.monthly_rev_diff
-WHERE gid = <GID> AND cli = <CLI>
-GROUP BY 1, 2, 3
+select gid, cli, install_month, max(spend) as spend
+from play_data.monthly_rev_diff
+where gid = <GID> and cli = <CLI>
+group by 1, 2, 3
 ```
-
-`install_month` is already a `date` — no `to_date()` wrapper, and the month step is
-`date_add('month', diff, install_month)`, not `add_months`.
 
 Cumulative ROAS through month N = `SUM(rev WHERE diff <= N) / MAX(spend)`. Only `gid` and `cli` exist as
 dimensions — no country/network/source cut is possible here; say so rather than switching charts
@@ -95,36 +81,35 @@ revenue, downloads, active_users, d1, d7, d14, d30, session_count, total_session
 time_spent, total_time_spent.
 
 ```sql
-SELECT
-  a.date_field AS "time",
-  b.product_name AS game_name,
-  a.platform AS os,
+%sql
+select
+  date_field as time,
+  b.product_name as game_name,
+  a.platform as os,
   b.publisher_name,
-  b.game_class AS category,
+  b.game_class as category,
   a.product_id,
-  upper(a.country) AS country,
-  SUM(CASE WHEN a.metric = 'revenue'      THEN CAST(a.value AS DOUBLE) END) AS revenue,
-  SUM(CASE WHEN a.metric = 'downloads'    THEN CAST(a.value AS DOUBLE) END) AS downloads,
-  SUM(CASE WHEN a.metric = 'active_users' THEN CAST(a.value AS DOUBLE) END) AS active_users,
-  SUM(CASE WHEN a.metric = 'd1'           THEN CAST(a.value AS DOUBLE) END) AS d1_retention,
-  SUM(CASE WHEN a.metric = 'd7'           THEN CAST(a.value AS DOUBLE) END) AS d7_retention
-FROM external_data.sensor_tower_data a
-LEFT JOIN external_data.st_product_details b ON a.product_id = b.product_id
-WHERE a.date_field BETWEEN DATE '<START>' AND DATE '<END>'
-  AND a.product_id IN (<PRODUCT_ID(S)>)
-GROUP BY 1, 2, 3, 4, 5, 6, 7
+  upper(a.country) as country,
+  CASE WHEN metric = 'revenue' THEN value END AS revenue,
+  CASE WHEN metric = 'downloads' THEN value END AS downloads,
+  CASE WHEN metric = 'active_users' THEN value END AS active_users,
+  CASE WHEN metric = 'd1' THEN value END AS d1_retention,
+  CASE WHEN metric = 'd7' THEN value END AS d7_retention
+from external_data.sensor_tower_data a
+left join external_data.st_product_details b on a.product_id = b.product_id
+where date_field between '<START>' and '<END>'
+  and a.product_id in (<PRODUCT_ID(S)>)
 ```
 
-- `date_field` is a real `date` at daily grain — anchor ranges to calendar periods and use typed `DATE`
-  literals. For a single-day snapshot replace the `BETWEEN` clause with `a.date_field = DATE '<DATE>'`.
-- Resolve `product_id` via `st_product_details` first; **`value` is `varchar`, so
-  `CAST(value AS DOUBLE)` before any aggregation** — Trino will not coerce it for you.
+- `date_field` is daily grain — anchor ranges to calendar periods. For a single-day snapshot replace the
+  `between` clause with `date_field = '<DATE>'`.
+- Resolve `product_id` via `st_product_details` first; `value` is STRING, so cast before aggregating.
 
 ## Custom / ratio metrics
 
 Query each base metric separately from its correct datasource, then apply the formula client-side. Never
-combine metrics from different tables or variants in one query, and never across engines. Align numerator
-and denominator to matching available dates only.
+combine metrics from different tables or variants in one query. Align numerator and denominator to
+matching available dates only.
 
 ## Schema verification
 
@@ -134,10 +119,9 @@ trigger: (1) before reporting that a metric, dX, or dimension isn't available; (
 entry. At most once per table per conversation.
 
 ```sql
-DESCRIBE <schema>.<table>
+%sql
+DESCRIBE TABLE <schema>.<table>
 ```
-
-`SHOW COLUMNS FROM <schema>.<table>` is equivalent. There is no `DESCRIBE TABLE` in Trino.
 
 For Druid chart datasources use `INFORMATION_SCHEMA.COLUMNS` / `INFORMATION_SCHEMA.TABLES` instead — see
 `references/query-engines.md`. Use the live schema for the query, and on any disagreement with these
@@ -153,10 +137,9 @@ statement**, and a freshness check is read off that statement rather than fired 
 
 **Split when merging would need cleverness** — per-slice filters, per-slice rollup pins, per-slice windows,
 non-contiguous ranges, conditional aggregation. That is a normal outcome, not a compromise. Also always
-separate: each side of a cross-variant ratio (Druid cannot join variants), each distinct datasource, and
-**anything that would cross engines** — Druid and Trino are separate connections with no join between them.
+separate: each side of a cross-variant ratio (Druid cannot join variants) and each distinct datasource.
 
-Batch what remains into waves of ~5 submitted and polled together; **a wave may mix Trino and Druid**.
+Batch what remains into waves of ~5 submitted and polled together; **a wave may mix Databricks and Druid**.
 Sequential only for true dependencies: `chart_config` resolution before that chart's first Druid query,
 drill-down L1 before L2, maturity-dependent dX choices. ~5 per wave matches engine concurrency; larger
 waves just queue server-side.

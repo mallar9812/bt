@@ -1,6 +1,6 @@
 ---
 name: investigate-retention
-description: "BRIAN Tier-2 investigator — classic retention (D1/D7/D30… dX) drop/spike investigations. Use when classic retention moved or the user asks why: \"D7 retention dropped\", \"retention fell for [game]\", \"investigate retention\", \"why is D1 retention up\". Runs a staged playbook (D1 is-it-real gate → D2 decomposition + annotations → D3 mix-shift + cross-metric sweep) with stop gates, hypothesis verdicts, and attribution buckets per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a retention trend and a contributor breakdown. NOT for rolling retention (flag-based D1/D3 rolling) — that is investigate-rolling-retention. Data: chart_1706 via ps-data-catalog; at D3 the user-level (ULD) dau_splits and adjust_installs for campaign/creative cohorts and segment combinations.\n"
+description: "BRIAN Tier-2 investigator — classic retention (D1/D7/D30… dX) drop/spike investigations. Use when classic retention moved or the user asks why: \"D7 retention dropped\", \"retention fell for [game]\", \"investigate retention\", \"why is D1 retention up\". Runs a staged playbook (D1 is-it-real gate → D2 decomposition + annotations → D3 mix-shift + cross-metric sweep) with stop gates, hypothesis verdicts, and attribution buckets per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a retention trend and a contributor breakdown. NOT for rolling retention (flag-based D1/D3 rolling) — that is investigate-rolling-retention. Data: chart_1706 via ps-data-catalog.\n"
 ---
 
 # Retention Investigator (Tier 2 · staged D1→D3)
@@ -67,18 +67,7 @@ checklist.**
     conspicuously didn't — bounds the cause.
 11. **Evidence timeline:** metric inflection vs annotation dates, proportionality against rollout
     ladders.
-12. **Below-chart cuts (ULD — catalog `references/uld.md`):** (a) when the shift-share points at a
-    source — `analytics.adjust_installs` (deduped on `(gid, cli, refid)`) for campaign / adgroup /
-    creative cohorts, joined to `derived_tables.dau_splits` for their return on `actual_diff`;
-    (b) segment combinations no `chart_1706` variant carries — OS version, device, build, LAT, ATT,
-    payer, or any cross of them, from the `dau_splits` segments; (c) **intake vs behavior — the
-    D0-bucket shift-share** (`brian-master/references/investigation-axes.md`): bucket the windows'
-    installs by install-day activity (D0 sessions/clears per user from the ULD activity tables joined
-    at `diff = 0`, buckets game-relative) and split the delta into bucket-mix shift (intake → CAMPAIGN)
-    vs within-bucket retention change (GAME). Disclose `dau_splits` coverage vs chart installs before
-    trusting any of these cuts; label every figure ULD; the headline rate stays on `chart_1706`.
-13. Full finding table + **axis coverage ledger** (`investigation-axes.md`) + drill path + the one
-    decisive next step, per protocol closure.
+12. Full finding table + drill path + the one decisive next step, per protocol closure.
 
 ## Visuals — this skill renders its own (mandatory from D2)
 
@@ -97,7 +86,5 @@ dual axis or two charts, always actual values (SR-8). Cohort maturity cuts the s
 plotted line at the last fully-matured install date and say so in the in-widget header rather than
 letting an immature tail render as a cliff.
 
-**Known limits (BLOCKED per protocol):** no FTUE **screen-level** funnel and no per-screen/dialog
-events in the cataloged sources — name it metric-not-found when a hypothesis needs it, and offer the
-activity-level proxy, labeled as a proxy. D0 **activity-level** conditioning is NOT blocked — it is step
-12's ULD cut (sessions/clears on install day vs return).
+**Known limits (BLOCKED per protocol):** no per-user D0-behavior conditioning and no FTUE funnel in the
+cataloged sources — name it metric-not-found when a hypothesis needs it.

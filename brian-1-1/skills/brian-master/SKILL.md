@@ -1,54 +1,12 @@
 ---
 name: brian-master
-description: "BRIAN v1.1 master router — the entry point for EVERY Playsimple analytics question. Classifies intent, hands off to exactly ONE analyst skill, and attaches a depth level (D0 mention · D1 check · D2 diagnose · D3 full investigation) so a broad \"how is X doing\" never turns into an accidental deep dive and a \"why did X drop\" never stays shallow. Owns the shared rulebook every analyst inherits (query-only, D-2 freshness, calendar anchoring, verdict grounding, formatting), the investigation protocol, and the escalation policy. Load FIRST for any Playsimple game/portfolio/metric question: performance, KPIs, healthcheck, retention, engagement, revenue, Rev/DAU, ROAS, spend, experiments, competitors, definitions, or any \"why did X move\" — then follow its routing to the right analyst.\n"
+description: "BRIAN v1.1 master router — the entry point for EVERY Playsimple analytics question. Classifies intent, hands off to exactly ONE analyst skill (a metric investigation may additionally open an independent experiment stream — see references/evidence-streams.md), and attaches a depth level (D0 mention · D1 check · D2 diagnose · D3 full investigation) so a broad \"how is X doing\" never turns into an accidental deep dive and a \"why did X drop\" never stays shallow. Owns the shared rulebook every analyst inherits (query-only, D-2 freshness, calendar anchoring, verdict grounding, formatting), the investigation protocol, and the escalation policy. Load FIRST for any Playsimple game/portfolio/metric question: performance, KPIs, healthcheck, retention, engagement, revenue, Rev/DAU, ROAS, spend, experiments, competitors, definitions, or any \"why did X move\" — then follow its routing to the right analyst.\n"
 ---
 
 # BRIAN Master — route the question, assign the depth
 
-Thin router. **Run the connection preflight (Step 0) first**, then do three things and get out of the way:
-**classify intent → pick exactly one analyst → attach a depth level**. Never answer the data question from this skill.
-
-## Step 0 — Connection preflight (before routing, before any query)
-
-BRIAN runs on **two separate connectors**: Druid (the `queryDruidSql` tool — every `chart_XXXX` metric)
-and **Trino** (the `trino-mcp` connector — `play_data.chart_config`, `public.gid_mapping`,
-`monthly_rev_diff`, Sensor Tower, annotations, and the user-level-data (ULD) tables). **Every** analysis needs Trino first: the GID lookup
-and the chart-version lookup both live there, so no Druid query can be written correctly without it.
-
-1. **Check that a Trino tool is available** — any tool whose server name contains `trino` (e.g.
-   `mcp__trino-mcp__…`). If it isn't in the loaded tool list, run `ToolSearch` with query `trino` once
-   (connectors can still be connecting at session start, and deferred tools don't show until searched).
-2. **Trino tool found → proceed** to routing. Send `schema.table` Trino statements only to that tool.
-3. **No Trino tool after the search → stop and send the "Connect Trino" message below. Do nothing
-   else.** Specifically, do NOT:
-   - send `play_data.*`, `public.*` or `external_data.*` statements through `queryDruidSql` — Druid
-     cannot see them and answers `Object 'public' not found` / `Object 'play_data' not found`;
-   - hunt Druid for game names, list `INFORMATION_SCHEMA.TABLES` to guess a chart version, or ask the
-     user for GIDs as a workaround — chart versions still need `chart_config`, so the numbers would be
-     wrong even with correct GIDs;
-   - describe the problem in engine/tool jargon ("Trino-only tables", "queryDruidSql").
-
-**Wrong-engine signal.** If a Druid call ever returns `Object 'public' not found`,
-`Object 'play_data' not found` or `Object 'external_data' not found`, the statement went to the wrong
-connector — it is not a missing table and not a trigger for schema discovery. Re-run it on the Trino
-tool; if there is no Trino tool, send the message below.
-
-**"Connect Trino" message** — send as-is (fill in nothing else, add no workaround options):
-
-> **Trino isn't connected in this chat, so I can't run this yet.** BRIAN uses Trino to look up game
-> IDs and the current chart versions before pulling any numbers — without it the results would be
-> wrong, so I've stopped rather than guess.
->
-> **To connect it:**
-> 1. Go to **Settings → Customize → Connectors**.
-> 2. Find **trino-mcp** and click **Connect** (sign in if asked).
-> 3. Come back and send your question again. If Trino still isn't picked up, start a new chat — new
->    connectors load when a chat starts.
->
-> If trino-mcp isn't listed under Connectors, ask your workspace admin to add it for you.
-
-After sending it, end the turn. When the user returns with Trino connected, re-run this preflight and
-continue with the original question — don't make them re-explain it.
+Thin router. Do three things, then get out of the way: **classify intent → pick exactly one analyst
+→ attach a depth level**. Never answer the data question from this skill.
 
 ## Hand-off contract
 
@@ -63,6 +21,10 @@ The analyst may not exceed its assigned depth (see `references/depth-policy.md`)
 next level when its budget ends inconclusive. **It may not fall below the depth's visual floor
 either** — `visuals` is part of the contract, not an optional extra (SR-22).
 
+**The hand-off never carries stream fields.** When a metric investigation also opens an experiment
+stream (`references/evidence-streams.md`), the analyst's hand-off is exactly the record above, byte for
+byte; the stream's bookkeeping lives in a separate orchestrator-only record the analyst never receives.
+
 ## Routing
 
 Full trigger-phrase table: `references/routing-table.md`. The short version:
@@ -70,10 +32,10 @@ Full trigger-phrase table: `references/routing-table.md`. The short version:
 | Question shape | Analyst skill | Default depth |
 |---|---|---|
 | "How is [game/franchise/portfolio] doing/performing", KPI summary, dashboard, ROAS/LTV/spend/eCPI | `analyst-game-performance` | D0 per domain touched |
-| CPI decomposition — CPM, IPM, CTR, Click-to-Install by network / creative type; "why did CPI/IPM move" | `analyst-game-performance` (Procedure D) | D2 |
 | "Compare A vs B", "top N by [metric]", "which game is best" — any ranking across 2+ entities | `analyst-game-performance` | **D1-C** (full Procedure C column set) |
 | "Daily healthcheck", "anything broken?", morning scan (also scheduled) | `analyst-daily-healthcheck` | D1 per cell |
-| "Read experiment X", A/B results, PAB read | `analyst-experiment-reads` (stub) | — |
+| Measured experiment outcomes: "read experiment X", A/B results, "how did the test do", PAB read, "did [test] move [metric]", "why did [metric] move in [variant]", "what did experiments do to [metric] in [period]", "which experiments could have caused [metric] to move in [period]" | `analyst-experiment-reads` → `experiment-master` | mode-defined: D2 / D3 |
+| Experiment ramp / allocation timeline, kill-or-ship status, Admon/PAB commentary — no measurement | `analyst-experiment-reads` | — |
 | Metric definition, formula, "which table/chart holds X", dimension values, glossary, quick single number | `analyst-general-questions` | D0 |
 | Competitor, rival app, market/genre benchmark (Sensor Tower) | `analyst-comp-data` | D0/D2 per ask |
 | "[classic] retention dropped/spiked/why" | `investigate-retention` | D2 (D3 on "investigate/root cause") |
@@ -83,8 +45,17 @@ Full trigger-phrase table: `references/routing-table.md`. The short version:
 
 Rules:
 
-- **One analyst per question.** A multi-part question is answered by the primary analyst, which may
-  hand off follow-ups. Never load two analysts side by side for one ask.
+- **One analyst per question — with one defined pairing.** A multi-part question is answered by the
+  primary analyst, which may hand off follow-ups. Never load two metric analysts side by side for one
+  ask. The single exception is the evidence-stream pairing in `references/evidence-streams.md`: an
+  eligible metric investigation runs its routed analyst (Stream A, unchanged) beside an independent
+  experiment stream (Stream B).
+- **Experiment-measurement asks go to `analyst-experiment-reads` (which invokes `experiment-master`)
+  before any metric-family row.** A "why did [metric] move" that names an experiment or variant is an
+  experiment ask; the metric-family investigators never take it. A mixed ask (status and measurement)
+  also goes there, and `experiment-master` reads annotation status itself. An ask that pairs an open
+  metric "why" with experiment intent ("why did Rev/DAU drop, check experiments") is not an experiment
+  ask alone: it opens both streams (`references/routing-table.md` § Mixed asks).
 - **Direct deep-dive asks skip Tier 1** — "why did D7 retention drop?" routes straight to
   `investigate-retention` at D2.
 - **Escalation is a depth upgrade, not a re-ask.** When a Tier-1 answer trips the Notable-Change
@@ -108,22 +79,23 @@ Rules:
   window the anchoring rules already fix, or a metric family a query would resolve. Outside Playsimple
   analytics → say so plainly.
 
-## User-level data (ULD) — the drill layer under the charts
+## Evidence streams
 
-Nine Trino warehouse tables at user (`rid`) grain (`ps-data-catalog` → `references/uld.md`). They answer
-what no chart can: distinct users, per-user distributions, segment combinations no variant carries,
-user-level joins across revenue / sessions / engagement / economy, Adjust campaign/creative at install,
-reported revenue by source × country. Routing never changes because of them — the question still goes
-to its one analyst; ULD is a tool that analyst picks up at the stage its skill names:
+Orchestration only; the full contract is `references/evidence-streams.md`. A metric investigation
+(D2/D3 on an investigator row, or `analyst-game-performance` running the investigation protocol) opens
+two independent streams:
 
-| Depth | ULD allowed? |
-|---|---|
-| D0 · D1 · D1-C | **No** — charts only. Exception: a direct ask that only ULD can answer ("what % of DAU spent coins", "installs by creative") — the owning analyst answers it at D0 from the table file's template, labeled ULD |
-| D2 | Only `revenue_reports` for a feed-lag / source × country check, and `analyst-general-questions` table lookups (no query) |
-| D3 | Yes — the per-user / breadth-vs-depth / campaign-cohort step each investigator lists |
+- **Stream A** — the routed metric analyst, run exactly as today with an unchanged hand-off.
+- **Stream B** — `analyst-experiment-reads` → `experiment-master`, started at `DISCOVERY` (cheap
+  discovery only) and raised to `EVIDENCE` only per the escalation gate (E1/E2 alone, or E3 and E4
+  together).
 
-Rules: the headline number always comes from the chart; ULD figures are labeled "user-level (ULD)" with
-their population filter and never share a ratio or series with a chart figure (SR-13a). `experiment.users_v2` and `sub_tables.tracking_slice_critical` are out of scope until documented.
+You read A's existing output, extract context from it (trigger, direction, magnitude, periods, scope,
+material cuts) and pass it one way to Stream B. Nothing B produces ever reaches A, and A is never told
+the stream exists. Run in the host's execution mode — `SEQUENTIAL_A_THEN_B` by default,
+`PARALLEL_ISOLATED` only where isolated parallel execution is explicitly supported. The two streams
+meet only in the final synthesis. Explicit experiment asks open no stream. The healthcheck, D0, D1 and
+D1-C routes never open one.
 
 ## What every analyst inherits
 
@@ -136,9 +108,6 @@ their population filter and never share a ratio or series with a chart figure (S
 - `references/investigation-protocol.md` — the shared drill (L0→L1→L2), hypothesis-verdict
   discipline, attribution ontology, annotations evidence layer, BLOCKED-note grammar. Binding at
   depth ≥ D2.
-- `references/investigation-axes.md` — the canonical axis checklist (generalized from the team's
-  investigation sheets, game-agnostic), the D3 axis coverage ledger, the intake-vs-behavior
-  (D0-bucket) shift-share, and recurring-pattern priors for hypothesis seeding.
 - Data & context only via `ps-data-catalog` (start at its **Fast path** box) and `ps-entities`.
   No analyst hardcodes a datasource or a chart version.
 - **`game-viz-design` — LOAD it, don't just cite it.** Every analyst and investigator renders its own

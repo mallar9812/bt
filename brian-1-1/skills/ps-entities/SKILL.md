@@ -36,11 +36,7 @@ SELECT gid, game_name
 FROM public.gid_mapping
 ```
 
-**Run this on the Trino tool (`trino-mcp`), never through `queryDruidSql`** — Druid answers
-`Object 'public' not found`. No Trino tool connected → stop and send the "Connect Trino" message from
-`brian-master` Step 0 (Settings → Customize → Connectors → trino-mcp); don't ask the user for GIDs instead.
-
-Confirmed table shape (`public.gid_mapping`, Trino — no catalog prefix): `gid` (int), `game_name` (string),
+Confirmed table shape (`hive_metastore.public.gid_mapping`): `gid` (int), `game_name` (string),
 `inserted_at` (timestamp — a row-insert timestamp, not useful for resolution).
 
 Apply the standard resolution rule above to the returned `game_name` values: match case-insensitively on

@@ -111,16 +111,6 @@ moving on a step but not in proportion is evidence *against* that build.
 `Finding = {segment, route/stage, hypotheses[{statement, verdict, data}], attribution_bucket,
 confidence, causation_flag, so_what}`.
 
-## Axis coverage ledger (mandatory at a D3 close)
-
-`references/investigation-axes.md` holds the canonical axis checklist generalized from the team's
-investigation sheets, game-agnostic and mapped to cataloged sources only. A D3 close renders the
-coverage ledger it defines — one row per axis: CHECKED (verdict + one-line evidence), BLOCKED (per the
-grammar below), or N/A (why) — so the answer accounts for every standard axis the way the sheets did,
-instead of only narrating the branch that paid off. The same file defines the intake-vs-behavior
-(D0-bucket) shift-share and the recurring-pattern priors that may seed hypotheses; a prior is commentary
-until verified on data queried this conversation.
-
 ## BLOCKED-note grammar (the only exclusion path)
 
 A step that cannot be computed renders as:
@@ -136,10 +126,7 @@ is **metric-not-found** — name the closest cataloged proxy only if one exists,
 
 - **`out-of-coverage`** requires the source's live bounds, read this conversation, and the note quotes
   them. A coverage floor, row count or date range copied from a reference file is a snapshot and cannot
-  ground the claim — sources get backfilled without the documentation following. **Per SR-20, the
-  live-bounds probe is retried once before the note is emitted** — a first empty/short result can be a
-  transient serving gap (segment reload, tier rebalance), not real absence; only a confirming second
-  probe grounds `out-of-coverage`, and the note names both.
+  ground the claim — sources get backfilled without the documentation following.
 - **`metric-not-found`** requires either the catalog showing no datasource for it, or a live schema
   check on the datasource that would carry it — not an inference from a metric having a different name
   than expected.
@@ -197,9 +184,7 @@ is true.** Check them in this order; if any is false, the correct output is "con
    verdict** — it is never the default fallback for "nothing else was found" before the chain finished.
 4. **The visuals and prose the depth requires actually rendered** (SR-22 / SR-23) — restated here because
    a closing verdict is exactly where skipping them is most tempting.
-5. **At D3, the axis coverage ledger rendered** (`investigation-axes.md`) — every canonical axis
-   accounted for as CHECKED / BLOCKED / N/A, none silently absent.
-6. **Both sides of every rate/count pairing the playbook names were actually queried at the matching
+5. **Both sides of every rate/count pairing the playbook names were actually queried at the matching
    grain — not just whichever side happened to be checked first.** If the metric under investigation has
    a cataloged rate-or-yield formula (eCPM, retention rate, fill rate, CTR, conversion) and a cataloged
    count-or-volume formula (impressions, installs, sessions, users, requests) at the same segment grain,

@@ -64,7 +64,7 @@ for aggregates ≥ $10k. Percentages → 2 decimals.
 or by implication — from a standalone number. Ground every verdict in (a) historical comparison
 (same game/segment vs its own past, queried this conversation) and/or (b) similar-game comparison
 (closest Playsimple title, disclosed). Name the basis inside the verdict sentence. Neither feasible →
-present descriptively, no verdict, say why. **The comparison basis is the baseline of the exact split being judged** — SR-30.
+present descriptively, no verdict, say why.
 
 **SR-12 · Weight verdicts efficiency-first, scaled by the money behind them.** ROAS/profit/eCPI outrank
 scale metrics (DAU, installs, raw revenue) when they conflict; retention/LTV sit between. A move
@@ -80,14 +80,6 @@ a chart version; variant suffix sorted alphabetically; consolidate statements pe
 ratios computed client-side from each metric's own variant. Trust the catalog; verify live schema only
 on its stated triggers, at most once per datasource per conversation — and state the correction when a
 mismatch is found.
-
-**SR-13a · User-level data (ULD) is a drill layer, never a headline.** The ULD tables (catalog
-`references/uld.md`) run on Trino and are used only at the depth `brian-master` § ULD allows. Headline
-figures come from the chart; a ULD figure is labeled "user-level (ULD)", names its population filter
-(e.g. `install_bucket <> 'reject'`, Adjust-matched users), and never shares a ratio, series or delta with
-a chart figure — their totals do not tie (Adjust inner join, test rids, restatement windows, IAP share).
-Every ULD statement bounds the partition column; multi-row tables are aggregated to the user-day before
-joining; `dau_splits` is the driving table.
 
 **SR-14 · Annotations are commentary, never a metric** (`play_data.charts_annotations`). They point a
 drill-down at a cause; the number still comes from a chart datasource. Full rules: catalog
@@ -132,15 +124,7 @@ uncovered, a table is empty, a metric is unavailable, or a window predates a sou
 in this conversation (a `MIN`/`MAX` on the date column, a targeted count), and the answer cites what the
 probe returned. "The reference says coverage starts then" is not a finding. Sources get backfilled and
 extended without the documentation moving; a stale bound reported as a blocker suppresses evidence that
-is sitting in the table. This verification is never optional and never rationed. **A probe that comes back empty is retried once — a
-straight re-run of the same query, no rewrite — before anything is reported absent, missing, or
-out-of-range.** Druid can show a live, momentary gap for reasons that have nothing to do with
-coverage (a segment/historical reload, a tiered-retention rebalance, a transient node loss), and
-these typically clear within minutes on their own. A single empty result is a retry trigger, not a
-finding. If the retry also comes back empty, proceed with the gap claim / BLOCKED note as before and
-name both probes (first + retry). If the retry returns data, treat the first result as a transient
-serving gap: say nothing about coverage or availability, and continue normally with the data the
-retry returned.
+is sitting in the table. This verification is never optional and never rationed.
 
 **SR-21 · One clarifying question, and only where no reasonable default exists.** Resolve what can be
 resolved: a name with exactly one plausible match, an ambiguity a cheap query settles, a window the
@@ -296,27 +280,3 @@ ordering, not a checklist to fill. Omit — silently, with no placeholder — an
 no qualifying move (SR-24), Supporting data already carried by a dashboard, a next question with no
 non-obvious follow-up, an escalation offer where the depth budget closed conclusively. Only the period
 & segment line, the depth-floor visuals (SR-22) and the Bottom line are unconditional.
-
-**SR-30 · Verdict against the baseline of the split you are looking at; UA-delivery ratios are per-network.**
-(a) Whatever slice a verdict is about — a network, creative type, platform, country, campaign type — the
-comparison basis is **that slice's own baseline** (same slice, same `cli`, its own trailing history), never
-the blended portfolio figure and never another slice. A network CPM is good or bad against that network's
-history, not against the portfolio CPM. (b) For `chart_2454` (CPI decomposition, `ps-data-catalog`
-`references/ua-delivery.md`): **always group by or pin `network_name` before computing CTR, CPM, IPM or
-CPI** — these ratios are not comparable across networks and summing across networks silently blends them.
-Verdict basis there is the same network's trailing 28d vs prior 28d plus its trailing 90d range, complete
-through D-2 per network (this explicit trailing basis overrides SR-5's month anchor for these ratios).
-(c) `chart_2454` does not tie to `chart_1706`: headline eCPI/spend/installs come from `chart_1706`; `chart_2454`
-only explains the move. (d) Decompose CPI as `CPM ÷ IPM`, `IPM = 1000 × CTR × Click-to-Install`, attribute
-the move by log change, say which term carries it, and split network mix from within-network rate before
-blaming one term. AppLovin/Unity CTR (~47–85%) is not an intent signal.
-
-**SR-31 · One cohort chart per answer — `chart_1706` or `chart_1068`, never both in one number.** Decide the
-chart before the first query and take every cohort metric in the answer (installs, spend, revenue/recovery,
-retention, ROAS, LTV, eCPI) from it. Never put installs/spend from one chart under revenue from the other, never
-form a ratio across the two, never overlay or average their series. If the user asks for both, return two
-separately labelled sections. Routing: `chart_1706` for up to D90, classic dX retention and `install_*` cuts;
-`chart_1068` for long-term revenue/ROAS/LTV D120–D360 and `network_type` / `geo_bucket` / `device_type` /
-`lat_flag` / `reattribution_flag` cuts; a question spanning the D90 boundary runs entirely on `chart_1068`.
-They do not tie (2026-07-01: installs +7.0%, D90 revenue +2.2% on 1068). `chart_1068` `network_type` is computed
-by the chart — use the map in `ps-data-catalog` `references/ua-delivery.md`, never the stored column.

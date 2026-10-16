@@ -5,6 +5,8 @@ qualifier overrides a summary phrasing.
 
 | Trigger patterns (examples) | Skill | Depth |
 |---|---|---|
+| any ask for measured experiment outcomes: "read experiment X", "A/B results", "how did the test do", "PAB read", "did [test] move [metric]", "why did [metric] move in [variant]", "what did experiments do to [metric] in [period]", "[metric] dropped between [date] and [date] — which experiments could have caused it?" — when the ask carries no unrestricted metric "why" (see § Mixed asks) | `analyst-experiment-reads` → `experiment-master` | mode-defined: D2 / D3 |
+| experiment ramp / allocation timeline, kill-or-ship status, Admon/PAB commentary, with no measurement: "what experiments are live/ramped/killed/shipped on [game]", "ramp history for X" | `analyst-experiment-reads` | — |
 | "investigate…", "root cause…", "deep dive on [metric]", "why exactly…" | matching `investigate-*` | D3 |
 | "why did [classic] retention drop/spike", "D7 retention fell" | `investigate-retention` | D2 |
 | "rolling retention dropped", "D1/D3 rolling moved" | `investigate-rolling-retention` | D2 |
@@ -13,10 +15,7 @@ qualifier overrides a summary phrasing.
 | "why did revenue/DAU/spend/ROAS move" (no single owning investigator) | `analyst-game-performance` runs the investigation protocol at D2 for that metric | D2 |
 | "daily healthcheck", "morning scan", "anything broken today?", "portfolio health" | `analyst-daily-healthcheck` | D1 |
 | "compare A vs B", "which game is best", "top N games/franchises/countries by [metric]", "rank the portfolio", any ask covering 2+ entities side by side | `analyst-game-performance` | **D1-C** |
-| "break CPI into CPM and IPM", "CTR / click-to-install / IPM / CPM for X", "why did CPI move" (UA delivery, creative type, network), CPI decomposition inside a ROAS analysis | `analyst-game-performance` (Procedure D, `chart_2454`) | D2 |
 | "how is [game/franchise/portfolio] performing/doing", "KPI summary", "dashboard for X", "ROAS/LTV/spend/eCPI for X", "LiveOps impact" | `analyst-game-performance` | D0 |
-| "read experiment X", "A/B results", "how did the test do", "PAB read" | `analyst-experiment-reads` | stub |
-| User-level asks with no chart equivalent — "what % of DAU [did X]", "distribution / p50 / p90 of [minutes, clears, revenue, wallet] per user", "how many users [segment A] and [segment B]", "installs / revenue by campaign, adgroup or creative", "reported revenue by source and country" | the analyst that owns the metric family (engagement → `investigate-engagement`, revenue → `investigate-rev-dau`, installs/attribution → `analyst-game-performance`) using the ULD layer (catalog `references/uld.md`) | D0 for a plain lookup; D3 when the ask is "why" |
 | "what does [metric] mean", "formula for X", "which table/chart holds X", "values of [dimension]", "define…", quick single-number lookups | `analyst-general-questions` | D0 |
 | "[competitor] performance", "vs [rival app]", "market/genre benchmark", "Sensor Tower…" | `analyst-comp-data` | D0; D2 when asked why |
 | "make a report/deck/PDF of…", "monthly/quarterly review deck", "export this to slides", "one-pager on…" | primary analyst answers, then `ps-brand-report` formats | **max(inherit, D2-R)** |
@@ -25,6 +24,11 @@ qualifier overrides a summary phrasing.
 because first match from the top wins, and a multi-entity ask phrased as a performance question ("how
 are Word Trip and Word Bingo performing") otherwise matches the D0 row first and runs a comparison at
 D0. Do not reorder these two.
+
+The two experiment rows sit at the **top** for the same reason: the investigate and "why did [metric]
+move" rows would otherwise capture an experiment question that names a metric. A mixed ask (status and
+measurement) goes to `analyst-experiment-reads`, which invokes `experiment-master`; `experiment-master`
+reads annotation status itself. `experiment-master` chooses its own mode and depth (D2 or D3).
 
 Tie-breaks:
 
@@ -37,6 +41,26 @@ Tie-breaks:
   portfolio doing — as a deck" still routes to `analyst-game-performance`, but at **D2-R**, not D0:
   the deck's Breakdowns and Detail sections need cuts that D0 forbids. See `depth-policy.md` § D2-R.
   Never let the formatting request read as a formatting-only request.
+
+## Mixed asks and the companion experiment stream
+
+A question can carry two signals: **X**, explicit experiment intent (it names an experiment, test,
+variant, A/B or PAB read, or asks about experiments), and **M**, an unrestricted metric-diagnosis ask
+("why did [metric] move", root cause, deep dive) that is not restricted to experiments. A why-question
+scoped to a named experiment or variant, or a cause question restricted to experiments, is not M. The
+rows above are unchanged; this section only says when a metric row also opens an experiment stream
+(contract: `evidence-streams.md`).
+
+| Example | X | M | Routing |
+|---|---|---|---|
+| "Read experiment X", "Analyze experiment X v4", "Give me an experiment read" | yes | no | `analyst-experiment-reads` → `experiment-master`; no metric analyst, no stream record, no synthesis |
+| "Which experiments could have caused Rev/DAU to drop?" | yes | no | same: experiment-only, `experiment-master` in PERIOD mode |
+| "Why did Rev/DAU drop, check experiments"; "Why did Rev/DAU drop — was it the test?" | yes | yes | the metric row (`investigate-rev-dau`, unchanged) **and** an experiment stream started at full evidence |
+| "Why did Rev/DAU drop?" | no | yes | the metric row (`investigate-rev-dau`, unchanged) **and** an experiment stream started at discovery only |
+| "How is [game] doing?", healthcheck, comparisons, definitions, competitors | no | no | the rows above, no experiment stream |
+
+An ambiguous phrasing is treated as mixed. The metric analyst's hand-off is the same record in every
+case; the experiment stream is orchestration beside it and is never part of it.
 
 ## Same-label metric families — the routing trap
 

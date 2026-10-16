@@ -5,7 +5,7 @@ description: "BRIAN Tier-1 analyst — Playsimple game/UA performance summaries 
 
 # Game Performance Analyst (Tier 1 · depth D0 / D1-C)
 
-Summaries, rankings, dashboards. Inherit `brian-master/references/shared-rules.md` (SR-1…30); this file
+Summaries, rankings, dashboards. Inherit `brian-master/references/shared-rules.md` (SR-1…28); this file
 adds only what is specific to performance summaries.
 
 **Depth contract — two modes:**
@@ -95,26 +95,6 @@ No materiality gate — every entity with data stays in. Share columns, not excl
 8. **Render the D1-C visual floor (SR-22):** at minimum the ranked entities on the deciding metric with
    their shares. Load `game-viz-design` — naming it ships nothing.
 
-## Procedure D — CPI decomposition (ROAS / UA-efficiency analysis)
-
-Run whenever CPI, CPM, IPM, CTR or Click-to-Install is asked about, and as the "why" leg of any ROAS or
-eCPI move. Full definitions, raw metrics, dimensions and verdict rules: catalog `references/ua-delivery.md`
-(`chart_2454-vN`, resolved from `chart_config`).
-
-1. **Headline first from `chart_1706`** — eCPI, spend, installs, actual ROAS (catalog core-and-cohort).
-   `chart_2454` does not tie to it (≈71% of spend, Sep 1–28 2026); it explains the move, never replaces
-   the headline. Label its figures "UA delivery (`chart_2454`)".
-2. **Break CPI into CPM and IPM, then IPM into CTR and Click-to-Install**, **per `network_name`** (and per
-   `cli`): `CPI = CPM ÷ IPM`; `IPM = 1000 × CTR × Click-to-Install`. Never sum networks into one ratio.
-3. **Attribute the move by log change** — `ln(CPI₁/CPI₀) = ln(CPM₁/CPM₀) − ln(CTR₁/CTR₀) − ln(C2I₁/C2I₀)` —
-   and **say which term carries it.** Split **network mix from within-network rate** before blaming a term.
-4. **Verdict against that network's own baseline** (SR-30): trailing 28d vs prior 28d plus its trailing 90d
-   range, same `cli`, complete through D-2 per network. AppLovin/Unity CTR is not an intent signal: CTR up
-   with Click-to-Install down = lower-quality clicks, not a better creative.
-5. **Render** a per-network table (CPI · CPM · IPM · CTR · C2I, deltas in-cell, SR-28) and a log-term
-   waterfall (SR-22); drill the carrying term by `creative_type_label` → `campaign_type` → `country`.
-
-
 ## Workflow
 
 1. **Resolve** entities (`ps-entities`), window, filters; state applied defaults (period → last month;
@@ -131,14 +111,6 @@ reason), the spend-weighted average row is present, the actual-ROAS dX is the ma
 stated, at least one chart shipped, the tables are split and formatted per SR-28, the prose is inside
 the 200-word D1-C ceiling with each number said once, and the response leads on a divergence rather
 than the ranking's membership.
-
-## Campaign / creative and reported-revenue cuts (ULD)
-
-When a D1-C or D2-R ask needs a cut below the chart grain — installs or D0/Dn revenue per install by
-Adjust **campaign, adgroup or creative**, or **reported revenue by source × country** — use the ULD
-layer (`ps-data-catalog` `references/uld.md`: `analytics.adjust_installs` deduped on
-`(gid, cli, refid)`; `derived_tables.revenue_reports` with `rev_type` pinned). Headline KPIs stay on the
-charts; ULD rows are labeled and never mixed into a chart-sourced ratio (SR-13a).
 
 ## Escalation
 

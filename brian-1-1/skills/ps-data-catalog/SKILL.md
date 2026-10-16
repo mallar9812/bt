@@ -1,15 +1,14 @@
 ---
 name: ps-data-catalog
-description: "Playsimple context layer — DATA CATALOG. Routing index for every datasource, metric formula, dimension, filter rule, grain, query template and glossary term. Druid is the default engine: nearly every metric comes from a versioned chart_XXXX datasource resolved from play_data.chart_config (variant suffix sorted alphabetically). Trino serves chart_config, monthly_rev_diff, the Sensor Tower tables, play_data.charts_annotations and the user-level-data (ULD) layer — nine warehouse tables for distinct-user, per-user-distribution, segment-combination and campaign/creative questions no chart answers. Domains: core KPIs, cohorts, predictions, revenue drill-downs, ad monetization, engagement, economy, crashes, notifications, competitors, annotations (what changed / shipped). Load before any Playsimple analytics query, before computing or explaining a metric or dimension, when asked which datasource holds something, or why a chart moved. Companion: ps-entities."
+description: "Playsimple context layer — DATA CATALOG. Routing index for every datasource, metric formula, dimension, hard filter rule, grain/date column, query template and glossary term. Druid is the default engine: nearly every metric comes from a versioned chart_XXXX datasource resolved from play_data.chart_config, variant suffix sorted alphabetically. Databricks serves only chart_config, monthly_rev_diff, the two Sensor Tower tables, and play_data.charts_annotations. Domains: core KPIs, cohort metrics, predictions, revenue drill-downs, ad monetization, engagement, economy, crashes, notifications, competitors, and chart annotations — the \"what changed\" layer (releases and rollout %, experiment ramps, admon opts, config flips, investigations). Load before any Playsimple analytics query, before computing or explaining any metric or dimension, whenever asked which datasource or engine holds something, and whenever a question asks what changed, what shipped, or why a chart moved. Companion: ps-entities.\n"
 ---
 
 # Playsimple Data Catalog
 
 Routing index. **Druid is the default engine — nearly every metric is served by a versioned chart
-datasource resolved from `play_data.chart_config`. Trino serves four chart-adjacent things —
+datasource resolved from `play_data.chart_config`. Databricks now serves exactly four things:
 `chart_config` itself, `play_data.monthly_rev_diff`, the two Sensor Tower tables, and
-`play_data.charts_annotations` — plus the user-level-data (ULD) layer for questions no chart can answer
-(`references/uld.md`).** Read
+`play_data.charts_annotations`.** Read
 `references/query-engines.md` before the first query of any conversation. Then find the domain below and
 read only the reference file it points to. Each reference holds everything for its domain in one place:
 which datasource serves which metric, which variant, hard filter rules, grain, formulas, and dimension
@@ -21,16 +20,9 @@ The full rules live in `references/query-engines.md` and the domain files; this 
 minimal sequence so the first statements of a conversation are right without re-derivation. When
 anything here seems insufficient for the question, the reference file wins.
 
-**0. Confirm Trino is connected.** Look for a tool whose server name contains `trino` (e.g.
-`mcp__trino-mcp__…`); if none is loaded, `ToolSearch` for `trino` once. Still none → **stop**: send the
-"Connect Trino" message from `brian-master` Step 0 (Settings → Customize → Connectors → **trino-mcp** →
-Connect, then re-ask or start a new chat) and end the turn. Never route a Trino table through
-`queryDruidSql` — Druid's `Object 'public'/'play_data' not found` means wrong connector, not a missing
-table — and never ask for GIDs or guess chart versions as a workaround.
-
 **1. Resolve entities** via `ps-entities` (game → GID, franchise members, cli 0/1/2, tiers).
 
-**2. First statement of every conversation — one Trino batch for every chart the answer needs:**
+**2. First statement of every conversation — one Databricks batch for every chart the answer needs:**
 
 ```sql
 SELECT chart_id, version, chart_version, independent_columns, metrics
@@ -52,11 +44,9 @@ statement per variant (Druid cannot join variants), totals divided client-side �
 rates into a period rate.
 
 **5. Druid syntax traps:** double-quote every identifier and alias; the datasource is the bare quoted
-name (no backticks, no schema prefix); always filter `"__time" >= start AND < end+1day`;
+name (no `%sql`, no backticks, no schema prefix); always filter `"__time" >= start AND < end+1day`;
 `gid`/`cli`/`diff` are VARCHAR — quote the literals; `COUNT(DISTINCT …)` is approximate — never use it
-for day counts (count returned day rows instead). **In Trino the same three columns are `BIGINT` and go
-unquoted, dates need typed `DATE`/`TIMESTAMP` literals, tables are `schema.table` with no catalog prefix,
-and `%sql` is a syntax error** — full dialect notes in `references/query-engines.md`.
+for day counts (count returned day rows instead).
 
 **6. Rollup pins at a glance** — confirm in the domain file before the first `SUM()`, never probe a
 chart whose file declares none:
@@ -68,16 +58,13 @@ chart whose file declares none:
 | 1071 (predictions, fallback) | pin `model_type='DS_DAU_model'`; `accuracy = 'more accurate'`; exclude `no_pred` |
 | 2077 (drill-down) | pin `mediation='overall'`, `ad_network='overall'`, `id_type='rid'`; filter `rev_type` (IAP is mixed in) |
 | 2160 / 4495 (ad mon) | `network='overall'` is an exact rollup — pin it; exclude `country='others'` |
-| 2524 / 2898 / 2301 / 2917 / 2888 / 2076 (engagement) | pin `id_type='rid'` (column absent on 2301 and 2917 — no pin there); `category='overall'` and `puzzle_type='w/o puzzle_type'` are rollups |
-| 1068 (long-horizon cohort recovery / ROAS, D0–D360) | **always pin one `metric`** (cumulative columns); **never `SUM(spend)` on the raw table** (repeated per device_type × lat_flag × device_language row); `geo_bucket` is a rollup; `network_type` is computed — use the map in `references/ua-delivery.md`, not the stored column |
-| 2454 (UA delivery by network / creative type) | none — but **always group by `network_name`**; never sum networks into one CTR/CPM/IPM/CPI |
+| 2524 / 2898 / 2301 / 2917 / 2888 / 2076 (engagement) | pin `id_type='rid'`; `category='overall'` and `puzzle_type='w/o puzzle_type'` are rollups |
 | stability / notifications | pin `id_type='rid'` |
-| ULD tables (Trino) | always bound the partition column (`dau_date` / `date_field` / `report_date` / `installed_date`); exclude `install_bucket='reject'` via `dau_splits`; `revenue_reports` filter `rev_type`; `economy_master_cc` filter `cash_type`; dedupe `adjust_installs` on `(gid, cli, refid)` — `references/uld.md` |
 
 **7. Universal defaults that survive every question:** data complete only through **D-2**, freshness
 per **variant** (both sides of every ratio); calendar-anchored periods (week = Mon, month = 1st);
 net AND gross revenue, Rev/DAU whenever both appear; actuals before predictions, never mixed in one
-ratio; **one cohort chart per answer — `chart_1706` or `chart_1068`, never half of a metric from each**; `MAX(spend)` on `monthly_rev_diff`; annotations are commentary — never a queried number.
+ratio; `MAX(spend)` on `monthly_rev_diff`; annotations are commentary — never a queried number.
 
 Then read the domain reference below for hard filter rules and formulas before finalizing SQL.
 
@@ -89,14 +76,12 @@ Then read the domain reference below for hard filter rules and formulas before f
 | Gross revenue | `chart_1170-vN` (+ `-source-source_category` for its dau) | Druid | `references/core-and-cohort.md` |
 | Installs, retention dX, cohort revenue/LTV, LTDays, actual ROAS | `chart_1706-vN` | Druid | `references/core-and-cohort.md` |
 | Spend, eCPI | `chart_1706-vN-dt_flag-install_type` | Druid | `references/core-and-cohort.md` |
-| Long-horizon cohort revenue/ROAS past the day-grain dX caps (monthly `diff` 0–103) | `play_data.monthly_rev_diff` | **Trino** | `references/core-and-cohort.md` |
+| Long-horizon cohort revenue/ROAS past the day-grain dX caps (monthly `diff` 0–103) | `play_data.monthly_rev_diff` | **Databricks** | `references/core-and-cohort.md` |
 | Predicted D365 ROAS (`ltv/ecpi_dX`), `Pred_LTV`, recovery, CPI, predicted retention/payers | `chart_3730-vN-target_bucket` | Druid | `references/predictions.md` |
 | DS_DAU_model fallback predictions | `chart_1071-vN` | Druid | `references/predictions.md` |
 | "Why did revenue move" — ad network, mediation, rev_type, cohort age, payer/LAT/device splits, eCPM, Rev/User | `chart_2077-vN` | Druid | `references/drilldown.md` |
 | Ad funnel (request→load→view→click→grant), fill rate | `chart_2160-vN` | Druid | `references/ad-monetization.md` |
 | Ad revenue/eCPM by ad network or ad type, ad time & time-between-ads buckets, ad-type retention/churn | `chart_4495-vN` | Druid | `references/ad-monetization.md` |
-| **Long-term cohort revenue / ROAS / LTV beyond D90 (D120–D360)**; cuts by `network_type`, `geo_bucket`, `device_type`, `lat_flag`, `reattribution_flag` | `chart_1068-vN` (recovery, retained, payers) + `chart_1068-vN-metric` (installs) + `chart_1068-vN-device_language-device_type-lat_flag-metric` (spend) | Druid | `references/ua-delivery.md` (section **chart_1068**) — **pick `chart_1706` OR `chart_1068` per answer; never take part of a number from each**; includes the `network_type` mapping |
-| **CPI decomposition / UA delivery** — CPM, IPM, CTR, Click-to-Install, impressions, clicks, creative-type & network cuts of CPI; budget/bid | `chart_2454-vN` | Druid | `references/ua-delivery.md` — **group by `network_name`**; explains the CPI move, is **not** the headline eCPI (that is `chart_1706`) |
 | Sessions, time spent, sessions/DAU | `chart_2524-vN` | Druid | `references/engagement.md` |
 | Engagement / in-game actions, actions per DAU, puzzle-mode or action-type cuts | `chart_2898-vN` | Druid | `references/engagement.md` |
 | Rolling retention (D1/D3 rolling) | `chart_2301-vN` | Druid | `references/engagement.md` |
@@ -106,10 +91,9 @@ Then read the domain reference below for hard filter rules and formulas before f
 | Crashes, ANR, stability (Firebase) | `chart_2856-vN` | Druid | `references/stability-and-notifications.md` |
 | Play Store crashes / ANR by build | `chart_2857-vN` | Druid | `references/stability-and-notifications.md` |
 | Notification sends/clicks/CTR, permissions | `chart_3341-vN` | Druid | `references/stability-and-notifications.md` |
-| Competitors, rival apps, market/genre benchmarking | `external_data.sensor_tower_data`, `external_data.st_product_details` | **Trino** | `references/competitor.md` |
-| **What changed / what shipped / why a chart moved** — annotations: releases & build rollout %, experiment allocation ramps, admon stack opts, runtime config flips, open investigations | `play_data.charts_annotations` (coverage bounds read live, never assumed) | **Trino** | `references/annotations.md` |
-| **User-level questions no chart answers** — distinct users, per-user distributions (p50/p90, whales, zero-session DAU), segment combinations no variant carries, user-level joins across revenue / sessions / engagement / economy, wallet balances, Adjust campaign / adgroup / creative at install, reported revenue by source × country | ULD tables: `derived_tables.dau_splits`, `dm_admon.rev_dau_install_diff_ilrd_v2`, `derived_tables.revenue_reports`, `server_tables.engagement_puzzle_master_cc_col`, `server_tables.sessions_master_cc`, `server_tables.economy_master_cc`, `derived_tables.wallet_dau_install_diff`, `analytics.adjust_installs` | **Trino** | `references/uld.md` first (decision rule, routing, layer-wide rules, canonical join), then only the one `references/uld/<table>.md` it points to. **Headline numbers stay on the charts** |
-| Which engine runs a query, version lookup, variant/metric selection, alphabetical name building, Druid and Trino SQL syntax, unavailability rules | `play_data.chart_config` | **Trino** | `references/query-engines.md` |
+| Competitors, rival apps, market/genre benchmarking | `external_data.sensor_tower_data`, `external_data.st_product_details` | **Databricks** | `references/competitor.md` |
+| **What changed / what shipped / why a chart moved** — annotations: releases & build rollout %, experiment allocation ramps, admon stack opts, runtime config flips, open investigations | `play_data.charts_annotations` (coverage bounds read live, never assumed) | **Databricks** | `references/annotations.md` |
+| Which engine runs a query, version lookup, variant/metric selection, alphabetical name building, Druid SQL syntax, fallback rules | `play_data.chart_config` | **Databricks** | `references/query-engines.md` |
 
 ## Rules that apply to every datasource
 
@@ -124,7 +108,7 @@ later, since it is what lets the analyst skip a discovery probe.
 **Engine, version and variant resolution is owned by `references/query-engines.md`** — read it before
 the first query of any conversation. In one line: only `play_data.chart_config`,
 `play_data.monthly_rev_diff`, the two Sensor Tower tables and `play_data.charts_annotations` run in
-Trino; everything else is a Druid chart whose name you build from a `chart_config` row resolved this
+Databricks; everything else is a Druid chart whose name you build from a `chart_config` row resolved this
 conversation, with the variant suffix sorted alphabetically, reading each metric only from the variant
 that lists it. Every chart name in this catalog is written `chart_XXXX-vN` on purpose so a stale version
 can't be copied. Don't re-derive those rules from this page.
@@ -202,7 +186,7 @@ one applies, ask the user rather than carrying it over.
 **Trust these references for routing; verify live on a trigger.** Metric-to-variant mappings, dX
 ranges, and dimension lists here are a snapshot. For any documented chart, resolve the version and query
 it directly with no preemptive schema check. Verify (`INFORMATION_SCHEMA.COLUMNS` in Druid,
-`DESCRIBE <schema>.<table>` in Trino, or a bounds/count probe for availability) only when: (1) about to tell a
+`DESCRIBE TABLE` in Databricks, or a bounds/count probe for availability) only when: (1) about to tell a
 user that a metric, field, dimension, **time period, or row set** "isn't available", or reaching for a
 proxy; (2) a query fails with a schema error **after** you've confirmed the alphabetical sort; (3) the
 chart has no entry here. At most once per datasource per conversation. Live wins — and when a mismatch
@@ -269,7 +253,4 @@ reader and a false "this data doesn't exist".
 - **ANR** — Android "App Not Responding"; a separate error class from fatal and non-fatal crashes.
 - **rid** — internal user-identifier grain, as opposed to `adjust` (network-attributed) rows.
 - **eCPM** — revenue per 1,000 impressions. **eCPI** — spend per install. **ROAS** — revenue ÷ spend. **LTV** — cumulative revenue per install. **LTDays** — active days per install.
-- **IPM** — installs per 1,000 impressions (`chart_2454`); `CPI = CPM ÷ IPM`, `IPM = 1000 × CTR × Click-to-Install`. **IEC** — creative type labelled 'Video + IEC'; expansion not stated in the source SQL. **Click to Install** — installs ÷ clicks, store step included.
-- **ULD** — user-level data: the Trino warehouse tables at user (`rid`) grain, keyed `(date, gid, cli, rid)`; a drill layer under the charts — `references/uld.md`.
-- **ILRD** — impression-level revenue data: per-impression ad revenue from mediation, rolled up to the user-day in `dm_admon.rev_dau_install_diff_ilrd_v2`.
 - **`independent_columns`** — the dimensions **absent** from a variant's datasource, and the suffix in its name (sorted alphabetically by Druid).

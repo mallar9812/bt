@@ -1,6 +1,6 @@
 ---
 name: investigate-rolling-retention
-description: "BRIAN Tier-2 investigator — rolling retention (flag-based D1/D3 rolling) drop/spike investigations. Use when rolling retention moved or the user asks why: \"rolling retention dropped\", \"D1 rolling fell\", \"D3 rolling moved for [game]\". Rolling = active ON OR AFTER day X post-install — a different metric from classic dX retention, never blended with it. Staged playbook (D1 definition + equal-cohort-age gate → D2 contributors + classic-retention cross-check + annotations → D3 return-behavior analysis) per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a rolling-rate trend and a contributor breakdown. Data: chart_2301 (metric dim: D01_rolling / D03_rolling) via ps-data-catalog; at D3 the user-level (ULD) dau_splits (d1_rr_flag / d3_rr_flag) for segment combinations.\n"
+description: "BRIAN Tier-2 investigator — rolling retention (flag-based D1/D3 rolling) drop/spike investigations. Use when rolling retention moved or the user asks why: \"rolling retention dropped\", \"D1 rolling fell\", \"D3 rolling moved for [game]\". Rolling = active ON OR AFTER day X post-install — a different metric from classic dX retention, never blended with it. Staged playbook (D1 definition + equal-cohort-age gate → D2 contributors + classic-retention cross-check + annotations → D3 return-behavior analysis) per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a rolling-rate trend and a contributor breakdown. Data: chart_2301 (metric dim: D01_rolling / D03_rolling) via ps-data-catalog.\n"
 ---
 
 # Rolling Retention Investigator (Tier 2 · staged D1→D3)
@@ -59,17 +59,7 @@ close. Full checklist: `investigation-protocol.md` § Pre-close checklist.**
 10. **Returning-user engagement:** sessions/actions for later `cohort` age buckets (D02-D07, D08-D14) —
     did the users who return do less, or did fewer return at all?
 11. **Mix shift:** source mix toward low-return networks/geos, quantified mix-vs-rate.
-12. **Segment combinations (ULD — catalog `references/uld.md`):** `derived_tables.dau_splits`
-    `d1_rr_flag` / `d3_rr_flag` (active on `dau_date`+1 / +3 — final only at ≤ today−5) for cuts no
-    `chart_2301` variant carries — OS version, device, build, LAT, payer, notification permission, or
-    any cross of them; campaign / adgroup / creative cohorts via `analytics.adjust_installs` (deduped
-    on `(gid, cli, refid)`) joined to those flags; returning users' sessions/clears from the ULD
-    activity tables; and, when step 6's fork points at new-cohort quality, the **intake-vs-behavior
-    D0-bucket shift-share** (`brian-master/references/investigation-axes.md`) on the return flags.
-    Disclose `dau_splits` coverage vs the chart base; label ULD figures; the headline stays on
-    `chart_2301`.
-13. Evidence timeline; **axis coverage ledger** (`investigation-axes.md`) + finding table + drill path
-    + decisive next step per protocol closure.
+12. Evidence timeline; finding table + drill path + decisive next step per protocol closure.
 
 ## Visuals — this skill renders its own (mandatory from D2)
 
@@ -84,8 +74,10 @@ nothing. Minimum set per SR-22:
 
 **The classic-retention cross-check is the one chart most likely to mislead here.** Rolling and classic
 are different metrics on different denominators and sit in different bands — plotting them as two plain
-lines invites the reader to compare levels that are not comparable. Use two charts, or one chart with a
-labeled dual axis where each series' legend entry names its axis *and* its definition. Never blend them
+lines invites the reader to compare levels that are not comparable. Use two separate charts or panels:
+classic retention on its native install-date axis and rolling retention on its native activity-date
+axis, each x-axis titled with its date basis and each legend entry naming the series' definition. Never
+put them on one chart, dual axis included (`game-viz-design`: one date basis per chart). Never blend them
 into a single series, and never let a shared axis imply one is "higher" than the other.
 
 **Known limits (BLOCKED):** no per-user return-path sequences in the cataloged sources —

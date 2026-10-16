@@ -1,7 +1,7 @@
 # Core KPIs & Cohort — tables, formulas, dimensions
 
 > **Engine & versions:** Druid — resolve names per `references/query-engines.md`. Exception:
-> `play_data.monthly_rev_diff` runs in Trino.
+> `play_data.monthly_rev_diff` runs in Databricks.
 
 ## Rollups & mandatory pins
 
@@ -24,12 +24,12 @@ alongside `country`.
 | dau (gross-side) | `chart_1170-vN-source-source_category` | Druid | Same variant rule as `chart_579`. Prefer `chart_579` for headline DAU; this exists so gross-side ratios can be built without crossing charts. |
 | installs, `dX_retained`, `overall_rev_dX`, `dX_active_days` | `chart_1706-vN` | Druid | All chart dimensions available. **NEVER** use this variant for `spend` — it isn't in its `metrics` array. |
 | spend | `chart_1706-vN-dt_flag-install_type` | Druid | **`install_type` / `dt_flag` do not exist here.** Always the spend source. ⚠️ `chart_config` lists this suffix as `install_type-dt_flag`; the real Druid name sorts alphabetically to `dt_flag-install_type`. |
-| **long-horizon monthly cohort**: `rev`, `spend` past the day-grain dX caps (`diff` 0–103 confirmed live) | `play_data.monthly_rev_diff` | **Trino** | The one core table with **no Druid equivalent**. Only 6 columns: `gid`, `cli`, `install_month`, `rev`, `spend`, `diff` — **NEVER** filter `country` / `network` / `source` / `install_type`. **No `__time`** — grained by `install_month` + `diff`. **`spend` repeats on every `diff` row of a cohort — always `MAX(spend)`, never `SUM(spend)`.** |
+| **long-horizon monthly cohort**: `rev`, `spend` past the day-grain dX caps (`diff` 0–103 confirmed live) | `play_data.monthly_rev_diff` | **Databricks** | The one core table with **no Druid equivalent**. Only 6 columns: `gid`, `cli`, `install_month`, `rev`, `spend`, `diff` — **NEVER** filter `country` / `network` / `source` / `install_type`. **No `__time`** — grained by `install_month` + `diff`. **`spend` repeats on every `diff` row of a cohort — always `MAX(spend)`, never `SUM(spend)`.** |
 
 Date column on the Druid datasources is `"__time"` — always filter it, anchored to calendar periods.
 `play_data.monthly_rev_diff` has no `__time`; scope it by `install_month`.
 
-**The retired warehouse originals** — `play_data.Revenue_dataset`,
+**The retired Databricks originals** — `play_data.Revenue_dataset`,
 `Revenue_dataset_Source_Source_category`, `Gross_revenue_dataset`,
 `retention_ltv_ratio_independent`, `retention_ltv_ratio_dataset` — must not be queried. They lag the
 Druid datasources: on a July 2026 spot-check net revenue ran 0.34–1.62% low and DAU 2.2–6.9% low per
@@ -75,7 +75,7 @@ Install-date-cohort grain. All `/ installs` unless noted. Spend comes only from 
 | `overall_rev_dX` | Normal | raw | Cumulative cohort revenue through day X. |
 | `dX_active_days` | Normal | raw | Cumulative active days through day X. |
 
-### Long-horizon monthly cohort metrics (`play_data.monthly_rev_diff`, Trino)
+### Long-horizon monthly cohort metrics (`play_data.monthly_rev_diff`, Databricks)
 
 Use when a question needs cohort revenue or ROAS **past the day-grain caps** — `overall_rev_dX` and
 `dX_active_days` stop at d90, `dX_retained` at d360, while `diff` here runs 0 to 103 (~8.5 years).
@@ -85,27 +85,28 @@ Dims: `gid`, `cli` only.
 |---|---|---|---|
 | rev | Normal | `rev` | Revenue earned by the cohort **during month `diff` only — not cumulative**. Sum across `diff` for a running total. |
 | spend | Normal | `MAX(spend)` grouped by (`gid`, `cli`, `install_month`) | Total UA spend for the cohort. **The identical value repeats on every `diff` row — confirmed live, one cohort carried the same value on 104 rows. Always `MAX()`, never `SUM()`.** |
-| dau_month | Derived (dimension) | `date_add('month', diff, install_month)` | The calendar month `rev` was earned in. `diff` is a monthly aging index loosely analogous to the day-based `dX` windows (each step ≈ 30 days) — approximate, not an exact day-boundary match. |
+| dau_month | Derived (dimension) | `add_months(install_month, diff)` | The calendar month `rev` was earned in. `diff` is a monthly aging index loosely analogous to the day-based `dX` windows (each step ≈ 30 days) — approximate, not an exact day-boundary match. |
 | Monthly ROAS (diff) | Custom | `rev / spend` (spend via the `MAX()` rule) | Return from month `diff`'s revenue alone against total cohort spend. |
 | Cumulative ROAS through diff N | Custom | `SUM(rev WHERE diff <= N) / MAX(spend)` | Running ROAS through N months post-install — usable well past the day-based caps. |
 
-Plain Trino SQL — there is no `__time`, and `install_month` is a real `date` column (no `to_date()`
-wrapper), while `gid`, `cli` and `diff` are `BIGINT` (compare unquoted):
+Plain Databricks SQL — there is no `__time`:
 
 ```sql
-SELECT gid, cli, install_month, diff,
-       date_add('month', diff, install_month) AS dau_month, rev
-FROM play_data.monthly_rev_diff
-WHERE gid = <GID> AND cli = <CLI>
-ORDER BY install_month, diff
+%sql
+select gid, cli, install_month, diff,
+       add_months(to_date(install_month), diff) as dau_month, rev
+from play_data.monthly_rev_diff
+where gid = <GID> and cli = <CLI>
+order by install_month, diff
 ```
 
 ```sql
+%sql
 -- spend must be deduplicated per cohort — never sum across diff
-SELECT gid, cli, install_month, MAX(spend) AS spend
-FROM play_data.monthly_rev_diff
-WHERE gid = <GID> AND cli = <CLI>
-GROUP BY 1, 2, 3
+select gid, cli, install_month, max(spend) as spend
+from play_data.monthly_rev_diff
+where gid = <GID> and cli = <CLI>
+group by 1, 2, 3
 ```
 
 ## Field-range facts

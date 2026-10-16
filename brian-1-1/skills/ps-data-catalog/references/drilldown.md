@@ -16,7 +16,7 @@ and sum normally.
 Segment-level decomposition table for "why did X move?" — the cuts the core tables lack: ad network and
 mediation, `rev_type`, install cohort age, LAT/payer/install-type/device-language splits.
 
-**Date column in Druid is `"__time"`.** (The retired warehouse original used `time` — irrelevant now.)
+**Date column in Druid is `"__time"`.** (The retired Databricks original used `time` — irrelevant now.)
 
 ## Hard filter rules
 
@@ -25,8 +25,7 @@ mediation, `rev_type`, install cohort age, LAT/payer/install-type/device-languag
 | revenue, impressions, users by network, mediation, rev_type, cohort, country, install source, and more | **Revenue here is NOT ad-only** — `rev_type` includes an `IAP` value, so IAP and ad revenue share the `revenue` column. Always filter or group by `rev_type` before treating a `revenue` sum as ad revenue. The data is also multiplied across mediation × ad_network rollups: **default to `mediation = 'overall'` AND `ad_network = 'overall'` AND `id_type = 'rid'`** — pin all three unless the user explicitly asks about a specific network or mediation platform. When drilling exactly one of `mediation` / `ad_network`, pin the other to `'overall'`. Never sum without these pins. |
 
 *Schema note to verify:* the data-dictionary sheet says `chart_2077` has **no `id_type` column** — that
-pin belongs to the sessions-style tables (`chart_2524`). This is a Druid datasource, so check it with
-`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'chart_2077-vN'`; apply
+pin belongs to the sessions-style tables (`chart_2524`). Run `DESCRIBE TABLE chart_2077-vN`; apply
 the pin only where the column exists.
 
 ## Interpretation rules

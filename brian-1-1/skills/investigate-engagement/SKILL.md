@@ -1,6 +1,6 @@
 ---
 name: investigate-engagement
-description: "BRIAN Tier-2 investigator — engagement drop/spike investigations: sessions, time spent, sessions/DAU, actions per DAU, clears, WAU/MAU stickiness. Use when engagement moved or the user asks why: \"engagement dropped\", \"sessions fell\", \"time spent down\", \"why did actions per DAU move\", \"stickiness declined\". Staged playbook (D1 is-it-real → D2 surface-vs-depth split + contributors + annotations → D3 mode/action cuts + notification & crash cross-checks) per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a surface-vs-depth component chart and a contributor breakdown. Data: chart_2524/2898/2888/2076 via ps-data-catalog; at D3 the user-level (ULD) tables sessions_master_cc, engagement_puzzle_master_cc_col, economy_master_cc and wallet_dau_install_diff for breadth-vs-depth and per-user distributions. NOT for retention metrics — those have their own investigators.\n"
+description: "BRIAN Tier-2 investigator — engagement drop/spike investigations: sessions, time spent, sessions/DAU, actions per DAU, clears, WAU/MAU stickiness. Use when engagement moved or the user asks why: \"engagement dropped\", \"sessions fell\", \"time spent down\", \"why did actions per DAU move\", \"stickiness declined\". Staged playbook (D1 is-it-real → D2 surface-vs-depth split + contributors + annotations → D3 mode/action cuts + notification & crash cross-checks) per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a surface-vs-depth component chart and a contributor breakdown. Data: chart_2524/2898/2888/2076 via ps-data-catalog. NOT for retention metrics — those have their own investigators.\n"
 ---
 
 # Engagement Investigator (Tier 2 · staged D1→D3)
@@ -48,21 +48,7 @@ close. Full checklist: `investigation-protocol.md` § Pre-close checklist.**
     move looks reward-loop shaped.
 11. **Survivorship check:** stickiness (dau/mau) can rise while DAU falls because casual users left —
     test before celebrating a "quality improvement".
-12. **User-level cut (ULD — catalog `references/uld.md`):** breadth vs depth — did fewer users play,
-    or did the same users play less? From `server_tables.sessions_master_cc` and
-    `server_tables.engagement_puzzle_master_cc_col` (aggregated to the user-day, LEFT JOINed onto
-    `derived_tables.dau_splits`): zero-session DAU share, p50/p90 minutes and clears per user, heavy-player
-    bucket shift, current vs prior window. When the move looks reward-loop shaped, add
-    `server_tables.economy_master_cc` (`cash_type='cash'`: % of DAU spending, sink mix) and
-    `derived_tables.wallet_dau_install_diff` (median wallet by cohort age). Cut any of these by the
-    `dau_splits` segments the charts don't carry (OS version, device, build, payer, LAT). For a new-user
-    move, the **intake-vs-behavior D0-bucket shift-share**
-    (`brian-master/references/investigation-axes.md`) separates install quality from a game change.
-    Screen/dialog-level funnels are not in the cataloged sources — the labeled proxy is view→clear
-    conversion by `puzzle_type`/`action_type` from the engagement table. Disclose `dau_splits` coverage;
-    label ULD figures; the headline stays on `chart_2524`/`chart_2898`.
-13. Finding table + **axis coverage ledger** (`investigation-axes.md`) + drill path + decisive next
-    step per protocol closure.
+12. Finding table + drill path + decisive next step per protocol closure.
 
 ## Visuals — this skill renders its own (mandatory from D2)
 
@@ -81,7 +67,5 @@ values only (SR-8). When a cross-check metric is plotted beside the engagement s
 coincidence, label it as a cross-check **inside its own legend entry** (`● Crashes/DAU | cross-check,
 not a driver`) so it isn't read as a driver — not in a prose line above the chart.
 
-**Known limits (BLOCKED):** no screen/dialog-level funnels and no per-level difficulty curves in the
-cataloged sources — metric-not-found when a hypothesis needs them (view→clear by mode is the labeled
-proxy). D0-engagement buckets are NOT blocked — they are constructible from the ULD activity tables
-(step 12, `investigation-axes.md`).
+**Known limits (BLOCKED):** no D0-engagement-decile ladders and no per-level difficulty curves in the
+cataloged sources — metric-not-found when a hypothesis needs them.

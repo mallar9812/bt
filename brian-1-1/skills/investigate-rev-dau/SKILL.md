@@ -1,6 +1,6 @@
 ---
 name: investigate-rev-dau
-description: "BRIAN Tier-2 investigator — Rev/DAU drop/spike investigations, and revenue-vs-DAU divergences (\"revenue down but DAU flat\"). Use when Rev/DAU moved or the user asks why: \"rev/dau dropped\", \"ARPDAU fell\", \"monetization per user is down\", \"revenue fell but users didn't\". Staged playbook (D1 is-it-real on both sides of the ratio → D2 numerator-vs-denominator + ad-vs-IAP + contributors + admon annotations → D3 eCPM × imps/DAU chain + ad-funnel + segment quality cuts) per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a numerator-vs-denominator chart and a contributor breakdown. Data: chart_579/2077/4495/2160 via ps-data-catalog; user-level (ULD) rev_dau_install_diff_ilrd_v2 at D3 and revenue_reports for source × country / feed-lag checks.\n"
+description: "BRIAN Tier-2 investigator — Rev/DAU drop/spike investigations, and revenue-vs-DAU divergences (\"revenue down but DAU flat\"). Use when Rev/DAU moved or the user asks why: \"rev/dau dropped\", \"ARPDAU fell\", \"monetization per user is down\", \"revenue fell but users didn't\". Staged playbook (D1 is-it-real on both sides of the ratio → D2 numerator-vs-denominator + ad-vs-IAP + contributors + admon annotations → D3 eCPM × imps/DAU chain + ad-funnel + segment quality cuts) per the brian-master investigation protocol. Renders its own charts by loading game-viz-design — at D2+ every answer ships at least a numerator-vs-denominator chart and a contributor breakdown. Data: chart_579/2077/4495/2160 via ps-data-catalog.\n"
 ---
 
 # Rev/DAU Investigator (Tier 2 · staged D1→D3)
@@ -74,15 +74,7 @@ that names where without naming why-price-or-volume is half a verdict and does n
     low-yield segments is CAMPAIGN/EXTERNAL, not a monetization break.
 12. **Cross-checks:** sessions/time (`chart_2524` — fewer minutes = fewer ad slots), ad-type retention/
     churn (`chart_4495`) if aggressive pacing is hypothesized.
-13. **User-level concentration (ULD — catalog `references/uld.md`):** from
-    `dm_admon.rev_dau_install_diff_ilrd_v2` joined to `derived_tables.dau_splits`: did the broad base or
-    the whales move? Per-user ad-revenue p50/p90/p99, top-1% share, payer vs non-payer rev/DAU,
-    impressions per user by format. Cross any of these by the `dau_splits` segments the charts don't
-    carry (OS version, device, build, install_source × payer). Remember `total_rev` = ad + 0.7 × IAP,
-    xpromo excluded — it will not tie to `chart_579`. For a trailing dip, check `derived_tables.revenue_reports` by `rev_source` for a
-    late feed (APS, Apple Arcade, xpromo lag ~9 days) before calling it real.
-14. Finding table + **axis coverage ledger** (`brian-master/references/investigation-axes.md`) +
-    drill path + decisive next step per protocol closure.
+13. Finding table + drill path + decisive next step per protocol closure.
 
 ## Visuals — this skill renders its own (mandatory from D2)
 

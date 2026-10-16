@@ -14,7 +14,7 @@ field is unavailable, and never mix these decomposition tables into an L0 headli
   |---|---|---|
   | `chart_2524-vN` sessions | yes | `id_type = 'rid'` |
   | `chart_2898-vN` actions | yes | `id_type = 'rid'` |
-  | `chart_2917-vN` economy | **no** — absent on `chart_2917-v11` (verified Oct 2026); filtering on it fails | none |
+  | `chart_2917-vN` economy | yes | `id_type = 'rid'` |
   | `chart_2888-vN` WAU/MAU | yes | `id_type = 'rid'` |
   | `chart_2076-vN` DAU | yes — **and it is the one chart where the value matters** | `id_type = 'rid'` |
   | `chart_2301-vN` rolling retention | **no** — the column does not exist; filtering on it fails | none |
@@ -84,7 +84,7 @@ segmentation table, not a revenue table. **Always pin `id_type = 'rid'`.**
 
 | Name | Type | Definition |
 |---|---|---|
-| Sessions | Normal | Count of qualifying session events per rid, summed. **gid 20:** has no `start` rows — counted on `app_pause`. **gid 10:** live `chart_2524` counts `start` + `app_pause` (≈25–28 sessions/DAU; experiment DAGs count `start`/`resume` only, ≈6 — state which). **All other gids:** counted on `start` or `resume` (verified against `server_tables.sessions_master_cc`, Oct 2026 — `references/uld/server_tables.sessions_master_cc.md`). Session length is capped before counting — out-of-cap sessions are dropped entirely, not truncated. |
+| Sessions | Normal | Count of qualifying session events per rid, summed. **gids 10 and 20:** counted on `app_pause` status events. **All other gids:** counted on `start` or `resume`. Session length is capped before counting — out-of-cap sessions are dropped entirely, not truncated. |
 | Session Users | Normal | Distinct rid with at least one counted session that day, within the same dimension slice. |
 | Time Spent | Normal | Total in-session seconds that day. **gid 20:** only sessions between 0 and 7,200 seconds (2 hrs). **All other gids:** sessions between 0 and 100,000 seconds. |
 | Sessions per DAU | Custom | `sessions / dau` — dau from `chart_2076`, per the cross-dataset ratio rule below. |
@@ -101,7 +101,7 @@ They appear in the shared-dimension table above because other charts in this fam
 that table describes the family, **not** every chart in it. So an ATT-opt-in or
 notification-permission cut of sessions / time spent / sessions-per-DAU **is not available**: say
 the cut can't be made from this datasource rather than reaching for a proxy, and don't spend a
-column-not-found round trip discovering it. (A column-not-found here is not an engine-fallback
+column-not-found round trip discovering it. (A column-not-found here is not a Databricks-fallback
 trigger and not a version/variant sort error — it is a genuine absence.)
 
 ## `chart_2898-vN` — Engagement / actions
@@ -160,7 +160,6 @@ Dimensions beyond the shared set:
 | `earn_type` | How the cash moved: earn (positive — gameplay), purchase (positive — bought with real money), spend (negative/zero — spent in-game). 3 values. |
 
 Notes: `cli` includes 5 (unconfirmed); `stable_flag` carries no real meaning here — ignore it.
-**`total_cash` mixes units:** the chart is `server_tables.economy_master_cc` inner-joined to `dau_splits` with **no `cash_type` filter**, so coins (`cash`) are summed together with item counts (spin, hints, lives, inventory). Treat cross-category totals as directional; for coin-only flows use the ULD table with `cash_type = 'cash'` (`references/uld/server_tables.economy_master_cc.md`).
 
 ## `chart_2888-vN` — WAU / MAU
 

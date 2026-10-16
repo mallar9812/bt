@@ -6,7 +6,7 @@ description: "BRIAN Tier-1 analyst — competitor and market benchmarking from S
 # Comp Data Analyst (Tier 1 · depth D0; D2 on a "why")
 
 Inherit `brian-master/references/shared-rules.md`. Sources: `external_data.sensor_tower_data` +
-`external_data.st_product_details` (Trino) — rules, fields and query shapes in
+`external_data.st_product_details` (Databricks) — rules, fields and query shapes in
 `ps-data-catalog/references/competitor.md`. Read it before the first competitor query.
 
 ## Hard rules

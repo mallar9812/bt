@@ -8,11 +8,10 @@ experiment allocation ramp, an ad-stack optimisation, a runtime config flip, an 
 is the **narrative** counterpart to every metric datasource in the catalog — the only place in Playsimple
 analytics that records *cause*. Everything else says a number changed; this says what changed alongside it.
 
-**Engine: Trino.** There is no Druid chart for annotations — no `chart_config` row, no version, no
+**Engine: Databricks.** There is no Druid chart for annotations — no `chart_config` row, no version, no
 variant suffix — so `references/query-engines.md` Steps 1–3 do not apply and must not be attempted here.
-Query it as an ordinary Trino table, named `play_data.charts_annotations` with no catalog prefix. It is
-the 4th sanctioned Trino read alongside `chart_config`, `monthly_rev_diff`, and the two Sensor Tower
-tables.
+Query it as an ordinary Databricks table. It is the 4th sanctioned Databricks read alongside
+`chart_config`, `monthly_rev_diff`, and the two Sensor Tower tables.
 
 **Annotations are commentary, never a metric.** Never count them as an outcome, never present a figure
 quoted inside an annotation's text ("BN RPD: +8.77%") as a queried number, and never let an annotation
@@ -26,11 +25,9 @@ backfilled and extended, and its earliest row has already moved earlier than pre
 ```sql
 SELECT MIN(from_unixtime(created_at)) AS earliest,
        MAX(from_unixtime(created_at)) AS latest,
-       COUNT(*) AS n_rows
+       COUNT(*) AS rows
 FROM play_data.charts_annotations
 ```
-
-(`rows` is reserved in Trino — alias the count `n_rows` or quote it.)
 
 Then say the accurate thing, choosing between three different statements:
 
@@ -89,8 +86,8 @@ Three separate mechanisms inflate row counts. All three are live and all three m
 
 **(a) Platform fan-out.** One logical change is written **once per `cli`**. The same `description` and
 `created_at` appear on `cli` 0 and 1 with adjacent `annotation_id`s. Counting rows counts platform-rows.
-De-duplicate on (`description`, `created_at`, `gid`) — or `array_agg(DISTINCT cli)` to show which
-platforms a change hit, which is usually the more interesting answer anyway.
+De-duplicate on (`description`, `created_at`, `gid`) — or `collect_set(cli)` to show which platforms a
+change hit, which is usually the more interesting answer anyway.
 
 **(b) `Investigation` re-stamps daily while the issue is open.** Confirmed live: `CMP Resurface in EU & UK`
 on gid 50 appears **42 rows across 40 distinct days**, 2026-03-12 → 2026-07-25 — and the same subject
@@ -240,18 +237,14 @@ cause. That test is cheap and it kills a lot of false attributions.
 single-quoted Python repr, extract with string ops:
 
 ```sql
-regexp_extract(data, '''objectsAffected'': \[([^\]]*)\]', 1) AS objects_affected
+regexp_extract(data, "'objectsAffected': \\[([^\\]]*)\\]", 1) AS objects_affected
 ```
 
-**The pattern is a single-quoted Trino string literal** — the regex's own single quotes are doubled
-(`''`), and backslashes pass through literally because Trino string literals don't process escapes. Writing
-it in double quotes makes Trino read it as an identifier and the query fails.
-
-Verified live (Sep 2026): returns the changed config key **with its surrounding single quotes** (`'iobdl'`,
+Verified live: returns the changed config key **with its surrounding single quotes** (`'iobdl'`,
 `'22$prr1_i'`, `'psgid_i'`) — strip them if you're displaying it. On the narrative categories
-`objectsAffected` is `None` rather than a list, so the same expression returns **NULL** (Trino), not an
-empty string — `coalesce(…, '')` if a blank reads better. Either way that is the expected result there,
-not a parse failure. Don't attempt `from_json` / `json_parse` — it fails on every row.
+`objectsAffected` is `None` rather than a list, so the same expression returns an empty string; that is the
+expected result there, not a parse failure. Don't attempt `from_json` / `json_parse` — it fails on every
+row.
 
 ---
 
@@ -259,16 +252,16 @@ not a parse failure. Don't attempt `from_json` / `json_parse` — it fails on ev
 
 ```sql
 -- ops timeline for one game, platform fan-out collapsed
-SELECT MIN(from_unixtime(created_at))         AS event_ts,
+SELECT MIN(from_unixtime(created_at))      AS event_ts,
        category,
-       lower(trim(coalesce(features,'')))     AS feature_norm,
+       lower(trim(coalesce(features,'')))  AS feature_norm,
        description,
-       array_agg(DISTINCT cli ORDER BY cli)   AS platforms,
-       bool_or(auto_created)                  AS auto_created
+       collect_set(cli)                    AS platforms,
+       max(auto_created)                   AS auto_created
 FROM play_data.charts_annotations
 WHERE gid = 22
-  AND from_unixtime(created_at) >= TIMESTAMP '2026-06-28'   -- window widened ±3 days
-  AND from_unixtime(created_at) <  TIMESTAMP '2026-08-04'
+  AND from_unixtime(created_at) >= '2026-06-28'   -- window widened ±3 days
+  AND from_unixtime(created_at) <  '2026-08-04'
   AND category IN ('Releases','Experiments','Admon')   -- Runtime excluded: high volume, low signal
 GROUP BY category, lower(trim(coalesce(features,''))), description
 ORDER BY event_ts
@@ -285,12 +278,6 @@ WHERE category = 'Investigation' AND gid = 50
 GROUP BY gid, description
 ORDER BY opened
 ```
-
-Three Trino details in those shapes, all verified live (Sep 2026): **timestamp comparisons need a typed
-`TIMESTAMP '…'` literal** (a bare string does not cast), **`bool_or()` replaces `max()` over a boolean**
-(`max(boolean)` is not a valid Trino signature), and **`COUNT(DISTINCT …)` is exact here** — the Druid
-approximation warning in `query-engines.md` does not apply to this table. `gid` and `cli` are `BIGINT`:
-compare them unquoted.
 
 Filter `category` whenever the question is scoped — pulling all of `Runtime` for a busy game returns
 thousands of config flips and buries the release and experiment events that actually explain a move.

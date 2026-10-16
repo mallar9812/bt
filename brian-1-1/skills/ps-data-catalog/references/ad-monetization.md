@@ -78,8 +78,7 @@ Daily ad monetization by game, client, country, cohort and acquisition segment, 
 time-between-ads buckets, ad-served user counts, clicks, and D1 rolling retention / D1-D3-D7 churn
 attributed to a specific ad type.
 
-**The `time_bucket` duplication is handled structurally — do NOT `MAX()`-collapse.** In the retired
-warehouse original,
+**The `time_bucket` duplication is handled structurally — do NOT `MAX()`-collapse.** In Databricks,
 `dm_admon.metrics2` carried `rev`/`imps`/`users`/`clicks`/etc. duplicated identically across all 8–9
 `time_bucket` rows, requiring a collapse-then-sum subquery. **The Druid variants drop the duplicating
 dimension instead**, so a plain `SUM()` on the right variant is correct — and reaching for `MAX()` there
@@ -97,8 +96,7 @@ alphabetically-sorted Druid datasource `-ad_type-network-time_bucket`.** That is
 duplicate.
 
 The segment-level repetition rules also become structural: `dau`, `rr_users` and `rr_retained_users`
-repeated across `ad_type` *and* `network` in the retired warehouse original — on Druid they live on the
-variant that has
+repeated across `ad_type` *and* `network` in Databricks — on Druid they live on the variant that has
 neither column, so a segment with 5 ad types can no longer count its DAU 5x.
 
 **Rules that still apply** — these are dimension-value rules, not storage artifacts:

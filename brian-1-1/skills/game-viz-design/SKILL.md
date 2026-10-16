@@ -192,6 +192,15 @@ Delta rule: up is text `#28b76f` on pill `#e5f5ed`; down is text `#ea4e2b` on pi
 The absolute-change figure is right-aligned in the same row. These pill colors are reserved
 for delta direction only — never reuse `#28b76f`/`#ea4e2b` or their pills as series colors.
 
+**Neutral unless the evidence establishes the direction.** The up/down colors assert a direction, so
+use them only when the evidence behind the delta establishes that direction and its intended meaning.
+A change observed on delivered data (the KPI-card and healthcheck deltas above) establishes it. A
+tested difference, such as an experiment comparison, establishes it only when the analysis that
+produced it says so, for example when its returned confidence interval excludes zero. Otherwise use a
+neutral pill: text `rgba(0,0,0,0.6)` on `#f0f1f4`, with the value and its sign unchanged. Cases include
+a test that was not run or not computable, an interval that spans zero, and a sign whose meaning the
+analysis has not stated. This skill takes the direction from the analysis and never decides it.
+
 ### 2. Line chart
 
 For trends over time (DAU, revenue, Rev/DAU). Follow the Chart.js or Highcharts rules above:
@@ -228,6 +237,17 @@ dual-axis policy here is authoritative across all three surfaces — widget, PPT
 and throws if a chart is built any other way. When editing the policy here, update
 `ps-brand-report/references/pptx-report.md` and `pdf-report.md` in the same pass: three
 files stating three different dual-axis rules is how a broken chart ships.
+
+**One date basis per chart.** Never put install-date (cohort) and activity-date (calendar) values on
+one chart. Install-date metrics include classic dX retention and LTV by install cohort. Activity-date
+metrics include DAU, revenue and rolling retention. A dual y-axis is not a workaround, because both
+series still share one x-axis. Give each date basis its own chart or panel, with the x-axis titled
+"install date" or "activity date". This rule is about the date axis only and does not change the
+dual-axis policy above, which covers mismatched y-scales on one shared date axis.
+
+**Confidence intervals only as supplied.** Draw an interval, band or error bar only when the analysis
+result supplied it, at its stated level. Never compute one from the plotted points, and never draw one
+for a result that came without it.
 
 ### 3. Bar chart
 
@@ -480,6 +500,11 @@ canvas sizing, categorical hex values, accessibility requirements.
   charts are banned: they contradict the query results the reader just saw and read as
   manipulated numbers. Mismatched scales → dual y-axis (properly labeled) or two charts.
 - Don't repurpose `--text-success`/`--text-danger` as series colors — reserved for deltas.
+- **Never color a delta up or down unless the evidence establishes its direction.** Use the neutral
+  pill otherwise. Spec: "KPI card grid."
+- **Never draw a confidence interval the analysis did not supply.** Spec: "Line chart."
+- **Never mix install-date and activity-date values on one chart**, dual y-axis included. Spec:
+  "Line chart."
 - Don't invent data to fill a chart — plot only available dates (e.g. unmatured cohorts).
 - **Never plot an undelivered trailing day as a data point.** Data is complete only through D-2 by default
   (SR-6, the D-2 completeness rule in `brian-master/references/shared-rules.md`), so a trailing date whose value hasn't posted must be omitted from

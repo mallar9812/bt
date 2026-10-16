@@ -24,13 +24,6 @@ cite the catalog, don't build dashboards nobody asked for.
    Metric_type / Name / Formula / Description table format from the catalog's domain reference,
    verifying against the live schema only on the catalog's stated triggers.
 
-## User-level data (ULD) lookups
-
-"Which table has user-level X", "what does column Y in [ULD table] mean", "what values does it take" →
-answer from `ps-data-catalog` `references/uld.md` and the one `references/uld/<table>.md` it points to,
-without querying. A single user-level number ("% of yesterday's DAU who spent coins") is one Trino
-statement adapted from that file's templates — partition-bounded, labeled ULD, D-2 by default.
-
 ## Re-routing
 
 The moment a "quick question" turns into analysis ("…and why is it down?") — stop growing the answer

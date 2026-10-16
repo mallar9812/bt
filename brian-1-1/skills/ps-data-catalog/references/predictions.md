@@ -81,7 +81,7 @@ there is no gap to state.
 
 ## Coverage pre-check
 
-The **NaN pre-check is obsolete on Druid.** `Growth_widget` in the retired warehouse original returned NaN aggregates that
+The **NaN pre-check is obsolete on Druid.** `Growth_widget` in Databricks returned NaN aggregates that
 poisoned whole games, forcing segment isolation and coverage disclosure. `chart_3730-vN-target_bucket`
 returns clean values for those games. Don't isolate NaN
 segments or disclose NaN-driven coverage from Druid. If a Druid prediction figure *does* come back NaN,
